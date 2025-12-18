@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Kinderbild Erraten 10a</title>
+
+<!-- Firebase Firestore (namespaced) -->
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+
+<style>
+  body { font-family: Arial; text-align: center; background: #eef3ff; padding: 30px; }
+  h1 { color: #2c3eaa; }
+  img { max-width: 400px; border: 4px solid #2c3eaa; border-radius: 12px; margin: 20px 0; }
+  input { padding: 10px; font-size: 16px; width: 220px; margin: 10px; }
+  button { padding: 10px 20px; font-size: 16px; margin: 10px; cursor: pointer; background: #2c3eaa; color: white; border: none; border-radius: 6px; }
+  button:hover { background: #1f2f88; }
+  ul { list-style: none; padding: 0; }
+  li { font-size: 18px; margin: 5px 0; }
+
+  .progress-container {
+    width: 80%; background-color: #ccc; border-radius: 10px; margin: 20px auto;
+    height: 20px; overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%; width: 0%; background-color: #2c3eaa; border-radius: 10px;
+    transition: width 0.3s;
+  }
+</style>
+</head>
+<body>
+
+<h1>Kinderbild Erraten 10a</h1>
+
+<img id="childImage" src="bilder/kind1.jpg" alt="Kinderbild">
+
+<p>Wer denkst du, ist auf diesem Bild zu sehen?</p>
+<input type="text" id="nameInput" placeholder="Name eingeben"><br>
+<button onclick="abstimmen()">Abstimmen</button>
+<button onclick="ergebnisseZeigen()">ErgebnisseZeigen</button>
+<button onclick="naechstesBild()">Nächstes Bild</button>
+
+<div class="progress-container">
+  <div class="progress-bar" id="progressBar"></div>
+</div>
+
+<h2>Ergebnisse</h2>
+<ul style="display: none;" id="results"></ul>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyApBfiTzH1UG0p3sxUyhIGlBCbRahef35U",
+    authDomain: "kinderbilder-c3a88.firebaseapp.com",
+    projectId: "kinderbilder-c3a88",
+    storageBucket: "kinderbilder-c3a88.appspot.com",
+    messagingSenderId: "376281732604",
+    appId: "1:376281732604:web:de6351590feda3b0cb8e79"
+  };
+
+  // Firebase initialisieren
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const queryString = window.location.search;
+  const urlParams = new URLSearchParams(queryString);
+
+  
+  const bilder = [];
+  for (let i = 1; i <= 24; i++) {
+    bilder.push(`bilder/kind${i}.jpg`);
+  }
+
+  let aktuellesBild = Number(urlParams.get('bild') ?? 0);
+  
+  const img = document.getElementById("childImage");
+  const input = document.getElementById("nameInput");
+  const resultsList = document.getElementById("results");
+  const progressBar = document.getElementById("progressBar");
+
+  function updateProgressBar() {
+    const percent = ((aktuellesBild + 1) / bilder.length) * 100;
+    progressBar.style.width = percent + "%";
+  }
+
+  function bildId() {
+    return "bild" + (aktuellesBild + 1);
+  }
+
+  function loadErgebnisse() {
+    resultsList.innerHTML = "";
+    db.collection("votes").doc(bildId()).collection("namen").get()
+      .then(snapshot => {
+        const counter = {};
+        snapshot.forEach(doc => {
+          const n = doc.data().name;
+          counter[n] = (counter[n] || 0) + 1;
+        });
+        for (const name in counter) {
+          const li = document.createElement("li");
+          li.textContent = `${name}: ${counter[name]}`;
+          resultsList.appendChild(li);
+        }
+      });
+  }
+
+  function abstimmen() {
+    const name = input.value.trim();
+    if (!name) return;
+    db.collection("votes").doc(bildId()).collection("namen").add({ name });
+    input.value = "";
+    loadErgebnisse(); // Sofort aktualisieren
+  }
+  function ergebnisseZeigen(zwingeNone = false){
+    const ergDiv = document.getElementById("results")
+    if (ergDiv.style.display === "none"){
+      ergDiv.style.display = "initial"
+    } else if (zwingeNone === true) {
+      ergDiv.style.display = "none"
+    }
+    else {
+      ergDiv.style.display = "none"
+    }
+
+  }
+  function resetVotes() {
+    const votesRef = db.collection("votes").doc(bildId()).collection("namen");
+    votesRef.get().then(snapshot => {
+      snapshot.forEach(doc => votesRef.doc(doc.id).delete());
+    });
+  }
+
+  function naechstesBild() {
+    ergebnisseZeigen(true)
+    let url = new URL(window.location.href);
+
+    // Update or add a parameter
+    url.searchParams.set('bild', aktuellesBild + 1);
+
+    // Update the browser's URL without reloading the page
+    window.history.replaceState({}, '', url);
+
+    aktuellesBild = (aktuellesBild + 1) % bilder.length;
+    console.log(aktuellesBild)
+    resetVotes();
+    img.src = bilder[aktuellesBild];
+    loadErgebnisse();
+    updateProgressBar();
+  }
+
+  // Beim Laden
+  img.src = bilder[0];
+  img.src = bilder[aktuellesBild];
+  updateProgressBar();
+  loadErgebnisse();
+</script>
+
+</body>
+</html>
